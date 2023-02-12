@@ -210,7 +210,221 @@ SELECT COUNT(zip_code::NUMERIC) AS zip_count,
 	   ROUND(COUNT(zip_code)::NUMERIC/ COUNT(*)::NUMERIC *100, 2) AS pct_input  
 FROM crashes;
 
-
-SELECT DISTINCT(on_street_name)
+/* Selects counts of null values in location, longitude, and latitude columns.
+Results 225502 rows have null values in location, latitude, and longitude columns*/
+SELECT COUNT(*) AS location_null,
+	   (SELECT COUNT(*)
+	    FROM crashes
+	    WHERE longitude IS NULL) AS long_null,
+	   (SELECT COUNT(*)
+		FROM crashes
+	    WHERE latitude IS NULL) AS lat_null
 FROM crashes
-WHERE on_street_name LIKE '[%0123456789]';
+WHERE location IS NULL;
+
+
+/* Selects count of crashes group by borough and on_street_name. Inital run of the query and examination of the results
+showed duplication of many borough/on_street_name combinations most likely caused by whitespace. Updating the column by 
+trimming whitespace corrected the issue.*/
+SELECT borough, on_street_name, COUNT(on_street_name) as crash_count
+FROM crashes
+GROUP BY borough, on_street_name
+ORDER BY crash_count DESC;
+
+/* Trims whitespace in on_street_name.*/
+UPDATE crashes
+	SET on_street_name = TRIM(on_street_name);
+	
+/* Trims whitespace in cross_street_name.*/
+UPDATE crashes	
+	SET cross_street_name = TRIM(cross_street_name);
+	
+/* Trims whitespace in off_street_name.*/
+UPDATE crashes	
+	SET off_street_name = TRIM(off_street_name);
+
+
+/* Selects counts of null values in on_street_name, cross_street_name, and off_street_name columns.
+Results: 409658 rows have null values in on_street_name with 79% values inputed, 
+         727223 nulls in cross_street_name with 63% values inputed, 
+		 1646843 nulls in off_street_name with 16% values inputed */
+SELECT COUNT(*) AS on_null,
+	   (SELECT COUNT(*)
+	    FROM crashes
+	    WHERE cross_street_name IS NULL) AS cross_null,
+	   (SELECT COUNT(*)
+		FROM crashes
+	    WHERE off_street_name IS NULL) AS off_null,
+	   (SELECT ROUND(COUNT(on_street_name) / COUNT(*)::NUMERIC *100, 2)
+		FROM crashes) AS on_pct_input,
+	   (SELECT ROUND(COUNT(cross_street_name) / COUNT(*)::NUMERIC *100, 2)
+		FROM crashes) AS cross_pct_input,
+	   (SELECT ROUND(COUNT(off_street_name) / COUNT(*)::NUMERIC *100, 2)
+		FROM crashes) AS off_pct_input  
+FROM crashes
+WHERE on_street_name IS NULL;
+
+/* Returns rows where number_of_persons_injured is NULL. Investigation revealed 18 rows were NULL however had number of
+injuries input in specified type of entity columns*/
+SELECT *
+from crashes
+WHERE number_of_persons_injured IS NULL;
+
+/* Sets number of injuries from specific entity columns where number_of_persons_injured is NULL */
+UPDATE crashes
+	   SET number_of_persons_injured = (CASE WHEN number_of_pedestrians_injured::NUMERIC > 0 THEN number_of_pedestrians_injured::NUMERIC
+				 					  WHEN number_of_cyclist_injured::NUMERIC > 0 THEN number_of_cyclist_injured::NUMERIC
+				 					  WHEN number_of_motorist_injured::NUMERIC > 0 THEN number_of_motorist_injured::NUMERIC
+				 					  ELSE 0 END)
+	   WHERE number_of_persons_injured IS NULL;	
+
+/* Coverts number_of_persons_injured column from text data to integer data as it is a more appropriate data type for
+the feature.*/		   
+ALTER TABLE IF EXISTS crashes
+	ALTER COLUMN number_of_persons_injured
+			     TYPE INTEGER
+			      	  USING (number_of_persons_injured::INTEGER);
+					  
+/* Returns rows where number_of_persons_injured is NULL. Investigation revealed 31 rows were NULL however had number of
+deaths input in specified type of entity columns. */
+SELECT *
+from crashes
+WHERE number_of_persons_killed IS NULL;
+
+/* Sets number of deaths from specific entity columns where number_of_persons_killed is NULL */
+UPDATE crashes
+	   SET number_of_persons_killed = (CASE WHEN number_of_pedestrians_killed::NUMERIC > 0 THEN number_of_pedestrians_killed::NUMERIC
+				 					  WHEN number_of_cyclist_killed::NUMERIC > 0 THEN number_of_cyclist_killed::NUMERIC
+				 					  WHEN number_of_motorist_killed::NUMERIC > 0 THEN number_of_motorist_killed::NUMERIC
+				 					  ELSE 0 END)
+	   WHERE number_of_persons_killed IS NULL;
+	  
+/* Coverts number_of_persons_killed column from text data to integer data as it is a more appropriate data type for
+the feature.*/		   
+ALTER TABLE IF EXISTS crashes
+	ALTER COLUMN number_of_persons_killed
+			     TYPE INTEGER
+			      	  USING (number_of_persons_killed::INTEGER);
+					  
+/* Coverts number_of_pedestrians_injured column from text data to integer data as it is a more appropriate data type for
+the feature.*/		   
+ALTER TABLE IF EXISTS crashes
+	ALTER COLUMN number_of_pedestrians_injured
+			     TYPE INTEGER
+			      	  USING (number_of_pedestrians_injured::INTEGER);
+					  
+/* Coverts number_of_pedestrians_killed column from text data to integer data as it is a more appropriate data type for
+the feature.*/		   
+ALTER TABLE IF EXISTS crashes
+	ALTER COLUMN number_of_pedestrians_killed
+			     TYPE INTEGER
+			      	  USING (number_of_pedestrians_killed::INTEGER);
+					  
+/* Coverts number_of_cyclist_injured column from text data to integer data as it is a more appropriate data type for
+the feature.*/		   
+ALTER TABLE IF EXISTS crashes
+	ALTER COLUMN number_of_cyclist_injured
+			     TYPE INTEGER
+			      	  USING (number_of_cyclist_injured::INTEGER);
+					  
+/* Coverts number_of_cyclist_killed column from text data to integer data as it is a more appropriate data type for
+the feature.*/		   
+ALTER TABLE IF EXISTS crashes
+	ALTER COLUMN number_of_cyclist_killed
+			     TYPE INTEGER
+			      	  USING (number_of_cyclist_killed::INTEGER);
+					  
+/* Coverts number_of_motorist_injured column from text data to integer data as it is a more appropriate data type for
+the feature.*/		   
+ALTER TABLE IF EXISTS crashes
+	ALTER COLUMN number_of_motorist_injured
+			     TYPE INTEGER
+			      	  USING (number_of_motorist_injured::INTEGER);
+					  
+/* Coverts number_of_motorist_killed column from text data to integer data as it is a more appropriate data type for
+the feature.*/		   
+ALTER TABLE IF EXISTS crashes
+	ALTER COLUMN number_of_motorist_killed
+			     TYPE INTEGER
+			      	  USING (number_of_motorist_killed::INTEGER);
+					  
+/* Selects distinct values in the contributing_factor_vehicle_1 column. Investigation revealed some values were mispelled 
+or have slight variations of the same factor creating uneccessary additional factors. e.g: Illness spelled 'Illnes' 
+The values 1 & 80 are also listed as factors and according to the New York State POLICE CRASH REPORT SUBMISSION INSTRUCTIONS
+there is no code specified for these values, but there are less than ~120 entries with these values.*/
+
+SELECT DISTINCT contributing_factor_vehicle_1
+FROM crashes;
+
+/* Corrects spelling of value 'Illnes' to 'Illness' */
+UPDATE crashes
+	   SET contributing_factor_vehicle_1 = 'Illness'
+	   WHERE contributing_factor_vehicle_1 = 'Illnes';
+
+/* Corrects capitalization variation of value 'Cell Phone(hand-held)' */
+UPDATE crashes
+	   SET contributing_factor_vehicle_1 = 'Cell Phone (hand-held)'
+	   WHERE contributing_factor_vehicle_1 = 'Cell Phone (hand-Held)';
+	   
+/* According to NY State POLICE CRASH REPORT SUBMISSION INSTRUCTIONS All crashes must have at least one apparent 
+contributing factor - human, vehicular and/or environmental. However, 6037 crashes have no contributing factors listed.*/
+SELECT COUNT(*) 
+FROM crashes
+ 	 WHERE contributing_factor_vehicle_1 IS NULL
+	 AND contributing_factor_vehicle_2 IS NULL
+	 AND contributing_factor_vehicle_3 IS NULL
+	 AND contributing_factor_vehicle_4 IS NULL
+	 AND contributing_factor_vehicle_5 IS NULL;
+
+/* Selects distinct values from contributing_factor_vehicle_2. Investigation found the same results as in 
+contibuting_factor_vehicle_1.*/
+SELECT DISTINCT contributing_factor_vehicle_2
+FROM crashes;
+	 
+/* Corrects spelling of value 'Illnes' to 'Illness' */
+UPDATE crashes
+	   SET contributing_factor_vehicle_2 = 'Illness'
+	   WHERE contributing_factor_vehicle_2 = 'Illnes';
+
+/* Corrects capitalization variation of value 'Cell Phone(hand-held)' */
+UPDATE crashes
+	   SET contributing_factor_vehicle_2 = 'Cell Phone (hand-held)'
+	   WHERE contributing_factor_vehicle_2 = 'Cell Phone (hand-Held)';
+
+/* Selects distinct values from contributing_factor_vehicle_3. Investigation found the same results as in 
+contibuting_factor_vehicle_1.*/
+SELECT DISTINCT contributing_factor_vehicle_3
+FROM crashes;
+
+/* Corrects spelling of value 'Illnes' to 'Illness' */
+UPDATE crashes
+	   SET contributing_factor_vehicle_3 = 'Illness'
+	   WHERE contributing_factor_vehicle_3 = 'Illnes';
+
+/* Corrects capitalization variation of value 'Cell Phone(hand-held)' */
+UPDATE crashes
+	   SET contributing_factor_vehicle_3 = 'Cell Phone (hand-held)'
+	   WHERE contributing_factor_vehicle_3 = 'Cell Phone (hand-Held)';
+	   
+/* Selects distinct values from contributing_factor_vehicle_4. Investigation found the same results as in 
+contibuting_factor_vehicle_1.*/
+SELECT DISTINCT contributing_factor_vehicle_4
+FROM crashes;
+
+/* Corrects spelling of value 'Illnes' to 'Illness' */
+UPDATE crashes
+	   SET contributing_factor_vehicle_4 = 'Illness'
+	   WHERE contributing_factor_vehicle_4 = 'Illnes';
+
+/* Corrects capitalization variation of value 'Cell Phone(hand-held)' */
+UPDATE crashes
+	   SET contributing_factor_vehicle_4 = 'Cell Phone (hand-held)'
+	   WHERE contributing_factor_vehicle_4 = 'Cell Phone (hand-Held)';
+	   
+/* Selects distinct values from contributing_factor_vehicle_5.*/
+SELECT DISTINCT contributing_factor_vehicle_5
+FROM crashes;
+
+SELECT *
+FROM vehicles
+LIMIT 25;
