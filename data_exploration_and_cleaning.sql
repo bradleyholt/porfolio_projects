@@ -428,3 +428,47 @@ FROM crashes;
 SELECT *
 FROM vehicles
 LIMIT 25;
+
+/* Select and counts the number of each type of vehicle (trimmed and uppercased) recorded. */
+
+SELECT TRIM(UPPER(vehicle_type_code_1)) as upper_vehicle_type_code, 
+	   COUNT(vehicle_type_code_1) AS count_type	   
+FROM crashes
+GROUP BY upper_vehicle_type_code
+ORDER BY count_type
+
+/* Data inputed into the database was not adequately validated to ensure accurate reporting.
+This resulted in hundreds of different inputs with unclear vehicle types, multiple values that
+are the same with different spellings, and/or indisinct categories. To assist with data cleaning
+a selection of vehicle types will be changed to 'OTHER' by identifying the vehicle types with 
+a small number count and a total sum of the resulting types equaling less than 1% of the total
+count of the database to minimize negative impacts to future data analysis results*/
+
+/* Selects the total sum of counts of vehicle types with less than a count of 50
+Result: 4644 */
+WITH crash_count AS
+	   (SELECT TRIM(UPPER(vehicle_type_code_1)) as upper_vehicle_type_code, 
+	   		  COUNT(vehicle_type_code_1) AS count_type
+       FROM crashes
+       GROUP BY upper_vehicle_type_code
+       HAVING COUNT(vehicle_type_code_1) < 90);
+
+SELECT SUM(count_type)
+FROM crash_count;
+
+/* Trims and capitalizes all characters in vehicle_type_code_1 column */
+UPDATE crashes
+	   SET vehicle_type_code_1 = TRIM(UPPER(vehicle_type_code_1));
+	   
+/* Next step update vehicle_type_code_1 to OTHER when total count is less than 90 */
+UPDATE crashes 
+		SET vehicle_type_code_1 = 'OTHER'
+				WHERE (SELECT COUNT(vehicle_type_code_1)
+       			FROM crashes
+				GROUP BY vehicle_type_code_1
+      			) < 90;
+				
+SELECT vehicle_type_code_1, COUNT(vehicle_type_code_1) AS count_type
+FROM crashes
+GROUP BY vehicle_type_code_1
+HAVING COUNT(vehicle_type_code_1) < 90;
