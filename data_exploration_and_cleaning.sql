@@ -14,7 +14,7 @@ is to ensure the data is free of errors, is not redundant and is realiable. This
 ensure that data extracted for analysis is accurate, complete, and consise. */
 
 /*Creates table 'crashes' labeling each column with names from .csv file*/
-CREATE TABLE crashes
+CREATE TABLE IF NOT EXISTS crashes
 (CRASH_DATE text, CRASH_TIME text, BOROUGH text,
  ZIP_CODE text, LATITUDE text, LONGITUDE text, LOCATION text, ON_STREET_NAME text,
  CROSS_STREET_NAME text, OFF_STREET_NAME text, NUMBER_OF_PERSONS_INJURED text, 
@@ -35,6 +35,23 @@ DELETE FROM crashes
 WHERE crash_date = 'CRASH_DATE';
 
 /*Importing process was also completed for the vehicles and persons dataset*/
+
+CREATE TABLE IF NOT EXISTS vehicles
+(UNIQUE_ID text, COLLISION_ID text, CRASH_DATE text, CRASH_TIME text, VEHICLE_ID text, STATE_REGISTRATION text,
+ VEHICLE_TYPE text,	VEHICLE_MAKE text, VEHICLE_MODEL text, VEHICLE_YEAR text, TRAVEL_DIRECTION text,
+ VEHICLE_OCCUPANTS text, DRIVER_SEX text, DRIVER_LICENSE_STATUS text, DRIVER_LICENSE_JURISDICTION text,
+ PRE_CRASH text, POINT_OF_IMPACT text, VEHICLE_DAMAGE text,	VEHICLE_DAMAGE_1 text, VEHICLE_DAMAGE_2 text,
+ VEHICLE_DAMAGE_3 text,	PUBLIC_PROPERTY_DAMAGE text, PUBLIC_PROPERTY_DAMAGE_TYPE text, 
+ CONTRIBUTING_FACTOR_1 text, CONTRIBUTING_FACTOR_2 text
+);
+
+/*Imports data from .csv file into the newly created table*/ 
+COPY vehicles FROM 'C:\Users\Public\Documents\vehicles.csv' WITH (FORMAT csv)
+;
+
+/*Deletes header row that was imported.*/
+DELETE FROM vehicles
+WHERE crash_date = 'CRASH_DATE';
 
 /* Selects all columns in crashes table limited to 10 to begin data cleaning process */
 SELECT * FROM crashes
@@ -87,7 +104,6 @@ ALTER TABLE IF EXISTS vehicles
 		USING(collision_id::INTEGER)
 ;
 		
-
 /* Adds a foreign key constraint to vehicles.collision_id column which references the primary key 
 in crashes table */
 ALTER TABLE IF EXISTS vehicles
@@ -607,7 +623,6 @@ SET vehicle_type_code_1 = 'BICYCLE'
 	WHERE vehicle_type_code_1 IN ('BIKE')
 ;
 
-
 /* Changes rows with similar motorcycle alias to MOTORCYCLE */
 UPDATE crashes
 SET vehicle_type_code_1 = 'MOTORCYCLE'
@@ -632,6 +647,8 @@ SET vehicle_type_code_1 = 'MOPED'
 	WHERE vehicle_type_code_1 IN ('MOTORSCOOTER')
 ;
 
+
+/* Returns list of vehicle_type_code_1, total count of each type, and percentage of total crashes */
 SELECT vehicle_type_code_1, 
 	   COUNT(*) as type_count,
 	   ROUND(COUNT(*)::NUMERIC/(SELECT COUNT(*)::NUMERIC
@@ -641,3 +658,1223 @@ GROUP BY vehicle_type_code_1
 ORDER BY type_count DESC
 ;
 
+/* Update column 'new_time' with values from crash_date column converted to date format */
+UPDATE vehicles
+	SET crash_time = TO_TIMESTAMP(crash_time, 'HH24:MI')::TIME
+;
+
+/* Adds new column crash_timestamp to vehicles table */
+ALTER TABLE IF EXISTS vehicles
+	ADD COLUMN crash_timestamp TIMESTAMP
+;
+
+/* Concatenates 'crash_date' and 'crash_time' columns into new 'crash_timestamp' column and converts
+data type to TIMESTAMP */
+UPDATE vehicles
+	SET crash_timestamp = CONCAT(crash_date, ' ', crash_time)::TIMESTAMP
+;
+
+/* Permenantly removes crash_date from vehicles table */
+ALTER TABLE vehicles
+	DROP COLUMN crash_date,
+	DROP COLUMN crash_time
+;
+
+/* Selects distinct values from the state_registration for inspection. Some foreign country codes are included in the 
+values, but no unusual values were found from 83 distinct values*/
+SELECT DISTINCT(state_registration), COUNT(*) 
+FROM vehicles
+GROUP BY state_registration 
+ORDER BY state_registration DESC;
+;
+
+/* Selects distinct values from the vehicle_type for inspection.*/
+SELECT DISTINCT(vehicle_type), COUNT(*) 
+FROM vehicles
+GROUP BY vehicle_type
+ORDER BY vehicle_type DESC;
+;
+
+/* Select and counts the number of each type of vehicle (trimmed and uppercased) recorded. */
+SELECT TRIM(UPPER(vehicle_type)) as upper_vehicle_type, 
+	   COUNT(*) AS count_type	   
+FROM vehicles
+GROUP BY upper_vehicle_type
+ORDER BY count_type
+;
+
+/* To clean and transform the vehicle_type column all previous transformations from the vehicle_type_code columns will are
+reused to conduct the same tranformation. Afterwards the remaining values will be reassessed for update. */
+
+/* Trims and capitalizes all characters in vehicle_type column */
+UPDATE vehicles
+	   SET vehicle_type = TRIM(UPPER(vehicle_type)
+);
+
+/* Changes rows with similar ambulance alias to AMBULANCE */
+UPDATE vehicles
+SET vehicle_type = 'AMBULANCE'
+	WHERE vehicle_type IN ('AMBU', 'AMBUL', 'AMBIANCE', 'AMBULAMCE', 'AMBULANCE"', 'AMBULCANCE', 'AMDU', 'AMUBL', 
+						   'AMUBULANCE', 'AMULA', 'AMULANCE', 'ANBUL', 'ALMBULANCE', 'AMABU', 'AMBUKANCE', 'ABULANCE',
+						  'AMBULANCE''')
+;
+
+/* Changes rows with similar e-bike alias to E-BIKE */
+UPDATE vehicles
+SET vehicle_type = 'E-BIKE'
+	WHERE vehicle_type IN ('E-BIK')
+;
+
+/* Changes rows with similar e-scooter alias to E-SCOOTER */
+UPDATE vehicles
+SET vehicle_type = 'E-SCOOTER'
+	WHERE vehicle_type IN ('E-SCO')
+;
+
+/* Changes rows with similar fire truck alias to fire_truck */
+UPDATE vehicles
+SET vehicle_type = 'FIRE TRUCK'
+	WHERE vehicle_type IN ('FIRE')
+;
+
+/* Changes rows with similar STATION WAGON/SPORT UTILITY VEHICLE alias to STATION WAGON/SPORT UTILITY VEHICLE */
+UPDATE vehicles
+SET vehicle_type = 'STATION WAGON/SPORT UTILITY VEHICLE'
+	WHERE vehicle_type IN ('SPORT UTILITY / STATION WAGON')
+;
+
+/* Changes rows with similar tractor truck alias to TRACTOR TRUCK */
+UPDATE vehicles
+SET vehicle_type = 'TRACTOR TRUCK'
+	WHERE vehicle_type IN ('TRACT', 'TRACTOR TRUCK DIESEL', 'TRACTOR TRUCK GASOLINE')
+;
+
+/* Changes rows with similar bicycle alias to BICYCLE */
+UPDATE vehicles
+SET vehicle_type = 'BICYCLE'
+	WHERE vehicle_type IN ('BIKE')
+;
+
+
+/* Changes rows with similar motorcycle alias to MOTORCYCLE */
+UPDATE vehicles
+SET vehicle_type = 'MOTORCYCLE'
+	WHERE vehicle_type IN ('MOTORBIKE')
+;
+
+/* Changes rows with similar pick-up alias to PICK-UP TRUCK */
+UPDATE vehicles
+SET vehicle_type = 'PICK-UP TRUCK'
+	WHERE vehicle_type IN ('PK', 'TRUCK')
+;
+
+/* Changes rows with similar sedan alias to SEDAN */
+UPDATE vehicles
+SET vehicle_type = 'SEDAN'
+	WHERE vehicle_type IN ('4 DR SEDAN', '3 DOOR', '2 DR SEDAN')
+;
+
+/* Changes rows with similar sedan alias to SEDAN */
+UPDATE vehicles
+SET vehicle_type = 'MOPED'
+	WHERE vehicle_type IN ('MOTORSCOOTER')
+;
+
+/* Changes rows with similar unknown alias to UNKNOWN */
+UPDATE vehicles
+SET vehicle_type = 'UNKNOWN'
+	WHERE vehicle_type IN ('UNK FEMALE', 'UNK T', 'UNK,', 'UNK.', 'UNKL', 'UNKWN', 'UNLNO', 'UNNKO')
+;
+
+/* Select and counts the number of each type of vehicle (trimmed and uppercased) recorded. */
+SELECT DISTINCT(vehicle_type), 
+	   COUNT(*) AS count_type	   
+FROM vehicles
+GROUP BY vehicle_type
+ORDER BY count_type
+;
+
+/* Next step update vehicle_type to OTHER when total count is less than 90 */
+UPDATE vehicles
+SET vehicle_type = 'OTHER'
+WHERE vehicle_type IN (
+    SELECT vehicle_type
+    FROM (
+        SELECT vehicle_type, COUNT(*) AS count_type
+        FROM vehicles
+        GROUP BY vehicle_type
+    ) AS counts
+    WHERE counts.count_type <= 90
+);
+
+
+/* Due to the cleaning process, the vehicle_type column of the vehicles table may not have a match in the 
+vehicle_type_code of the crashes table. After checking the high count vehicle types with the query below,
+only a very small amount of rows did not have a match and will not significantly impact further analysis.*/
+SELECT c.collision_id, vehicle_type, vehicle_type_code_1, vehicle_type_code_2, vehicle_type_code_3, 
+vehicle_type_code_4, vehicle_type_code_5
+FROM crashes as c
+LEFT JOIN vehicles as v
+ON v.collision_id = c.collision_id
+WHERE vehicle_type = 'SEDAN' AND 'SEDAN' NOT IN(vehicle_type_code_1, vehicle_type_code_2, 
+												vehicle_type_code_3, vehicle_type_code_4, 
+												vehicle_type_code_5)
+ORDER BY c.collision_id
+;
+
+/* Select count of distinct of vehicle makes to begin cleaning of vehicle_make column. 7951 different
+of vehicle_makes are present with many different values of the same brand or ambiguous makes.*/
+SELECT DISTINCT(TRIM(UPPER(vehicle_make))) as vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Standardizes vehicle make values by trimming white space and capitalizing all letters */
+UPDATE vehicles
+SET vehicle_make = (TRIM(UPPER(vehicle_make)))
+;
+
+/* Find all values of vehicle makes containing 'TOYT'*/
+SELECT vehicle_make, 
+	   COUNT(*) as vehicle_make_count
+FROM vehicles
+	WHERE vehicle_make LIKE('%TOYT%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'TOYOTA' */
+UPDATE vehicles
+SET vehicle_make = 'TOYOTA'
+	WHERE vehicle_make LIKE('%TOYT%')
+;
+
+
+/* Find all values of vehicle makes containing 'HOND'*/
+SELECT vehicle_make, 
+	   COUNT(*) as vehicle_make_count
+FROM vehicles
+	WHERE vehicle_make LIKE('%HOND%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'HONDA' */
+UPDATE vehicles
+SET vehicle_make = 'HONDA'
+	WHERE vehicle_make LIKE('%HOND%')
+;
+
+/* Find all values of vehicle makes containing 'NISS'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	WHERE vehicle_make LIKE('%NISS%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'NISSAN' */
+UPDATE vehicles
+SET vehicle_make = 'NISSAN'
+	WHERE vehicle_make LIKE('%NISS%')
+;
+
+/* Find all values of vehicle makes containing 'FORD'*/
+SELECT vehicle_make, COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%FORD%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'FORD' */
+UPDATE vehicles
+SET vehicle_make = 'FORD'
+	WHERE vehicle_make LIKE('%FORD%')
+;
+
+/* Find all values of vehicle makes containing 'CHEV'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%CHEV%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'CHEVROLET' */
+UPDATE vehicles
+SET vehicle_make = 'CHEVROLET'
+	WHERE vehicle_make LIKE('%CHEV%')
+	OR vehicle_make = 'CHREVOLET'
+	OR vehicle_make = 'CHREVROLET'
+	OR vehicle_make = 'CHERVOLET'
+;
+
+/* Find all values of vehicle makes containing 'HYUN'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%HYUN%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'HYUNDAI' */
+UPDATE vehicles
+SET vehicle_make = 'HYUNDAI'
+	WHERE vehicle_make LIKE('%HYUN%')
+;
+
+/* Find all values of vehicle makes containing 'BMW'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%BMW%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'BMW' */
+UPDATE vehicles
+SET vehicle_make = 'BMW'
+	WHERE vehicle_make LIKE('%BMW%')
+;
+
+/* Find all values of vehicle makes containing 'MERZ' 'MERCEDES' OR 'BENZ'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%MERZ%')
+	       OR vehicle_make LIKE ('%MERCEDES%')
+		   OR vehicle_make LIKE ('%BENZ%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'MERCEDES' */
+UPDATE vehicles
+SET vehicle_make = 'MERCEDES'
+	WHERE vehicle_make LIKE('%MERZ%')
+	       OR vehicle_make LIKE ('%MERCEDES%')
+		   OR vehicle_make LIKE ('%BENZ%')
+;
+
+/* Find all values of vehicle makes containing 'JEE'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%JEE%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'JEEP' */
+UPDATE vehicles
+SET vehicle_make = 'JEEP'
+	WHERE vehicle_make LIKE('%JEE%')
+;
+
+/* Find all values of vehicle makes containing 'DOD', 'RAM', but not like 'RAMB' (to exclude
+'rambler' matches*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%DOD%')
+	       OR vehicle_make LIKE('RAM%')
+		   AND vehicle_make NOT LIKE('%RAMB%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'DODGE' */
+UPDATE vehicles
+SET vehicle_make = 'DODGE'
+	WHERE vehicle_make LIKE('%DOD%')
+	       OR vehicle_make LIKE('RAM%')
+		   AND vehicle_make NOT LIKE('%RAMB%')
+;
+
+/* Find all values of vehicle makes containing 'LEX' or 'LEXUS'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%LEXS%')
+	 OR vehicle_make LIKE ('LEXUS')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'LEXUS' */
+UPDATE vehicles
+SET vehicle_make = 'LEXUS'
+	WHERE vehicle_make LIKE('%LEXS%')
+	 OR vehicle_make LIKE ('LEXUS')
+;
+
+/* Find all values of vehicle makes containing 'ACU'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%ACU%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'ACURA' */
+UPDATE vehicles
+SET vehicle_make = 'ACURA'
+	WHERE vehicle_make LIKE('%ACU%')
+;
+
+/* Find all values of vehicle makes containing 'INF'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%INF%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'ACURA' */
+UPDATE vehicles
+SET vehicle_make = 'INFINITY'
+	WHERE vehicle_make LIKE('%INF%')
+;
+
+/* Find all values of vehicle makes containing 'VOLK'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%VOLK%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'VOLKSWAGON' */
+UPDATE vehicles
+SET vehicle_make = 'VOLKSWAGON'
+	WHERE vehicle_make LIKE('%VOLK%')
+;
+
+/* Find all values of vehicle makes containing 'CHR' but not 'CHRIS'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%CHR%')
+	       AND vehicle_make NOT LIKE ('%CHRIS%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'CHRYSLER' */
+UPDATE vehicles
+SET vehicle_make = 'CHRYSLER'
+	WHERE vehicle_make LIKE('%CHR%')
+	       AND vehicle_make NOT LIKE ('%CHRIS%')
+;
+
+/* Find all values of vehicle makes containing 'SUB'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%SUBA%')
+	 AND vehicle_make NOT LIKE ('JIANGSUBAODIAO')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'SUBARU' */
+UPDATE vehicles
+SET vehicle_make = 'SUBARU'
+	WHERE vehicle_make LIKE('%SUBA%')
+	       AND vehicle_make NOT LIKE ('JIANGSUBAODIAO')
+;
+
+/* Find all values of vehicle makes containing 'KIA'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%KIA%')
+	 AND vehicle_make NOT LIKE ('ANAKIA')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'KIA' */
+UPDATE vehicles
+SET vehicle_make = 'KIA'
+	WHERE vehicle_make LIKE('%KIA%')
+	       AND vehicle_make NOT LIKE ('ANAKIA')
+;
+
+/* Find all values of vehicle makes containing 'GMC'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%GMC%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'KIA' */
+UPDATE vehicles
+SET vehicle_make = 'GMC'
+	WHERE vehicle_make LIKE('%GMC%')
+;
+
+/* Find all values of vehicle makes containing 'AUDI'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%AUDI%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'KIA' */
+UPDATE vehicles
+SET vehicle_make = 'AUDI'
+	WHERE vehicle_make LIKE('%AUDI%')
+;
+
+/* Find all values of vehicle makes containing 'MAZ'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%MAZ%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'MAZDA' */
+UPDATE vehicles
+SET vehicle_make = 'MAZDA'
+	WHERE vehicle_make LIKE('%MAZ%')
+;
+
+/* Find all values of vehicle makes containing 'LINC'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%LINC%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'LINCOLN' */
+UPDATE vehicles
+SET vehicle_make = 'LINCOLN'
+	WHERE vehicle_make LIKE('%LINC%')
+;
+
+/* Find all values of vehicle makes containing 'FREI' or 'FRHT'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%FREI%')
+	       OR vehicle_make LIKE('%FRHT%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'FREIGHTLINER' */
+UPDATE vehicles
+SET vehicle_make = 'FREIGHTLINER'
+	WHERE vehicle_make LIKE('%FREI%')
+		  OR vehicle_make LIKE('%FRHT%')  
+;
+
+/* Find all values of vehicle makes containing 'FREI' or 'FRHT'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%MACK%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'MACK' */
+UPDATE vehicles
+SET vehicle_make = 'MACK'
+	WHERE vehicle_make LIKE('%MACK%')
+;
+
+/* Find all values of vehicle makes containing 'CADI'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%CADI%')
+	  AND vehicle_make NOT LIKE('%CASCADIA%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'CADILLAC' */
+UPDATE vehicles
+SET vehicle_make = 'CADILLAC'
+	WHERE vehicle_make LIKE('%CADI%')
+	AND vehicle_make NOT LIKE('%CASCADIA%')
+;
+
+/* Find all values of vehicle makes containing 'MITS'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%MITS%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'CADILLAC' */
+UPDATE vehicles
+SET vehicle_make = 'MITSUBISHI'
+	WHERE vehicle_make LIKE('%MITS%')
+;
+
+/* Find all values of vehicle makes containing 'INTL'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%INTL%')
+	 OR vehicle_make LIKE ('%INTER%')
+	 AND vehicle_make NOT LIKE('INTERSTATE')
+	  AND vehicle_make NOT LIKE('SPRINTER')
+	   AND vehicle_make NOT LIKE('NASSAU')
+	   AND vehicle_make NOT LIKE('%INTERCEPTOR%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'INTERNATIONAL' */
+UPDATE vehicles
+SET vehicle_make = 'INTERNATIONAL'
+	WHERE vehicle_make LIKE('%INTL%')
+	 OR vehicle_make LIKE ('%INTER%')
+	 AND vehicle_make NOT LIKE('INTERSTATE')
+	  AND vehicle_make NOT LIKE('SPRINTER')
+	   AND vehicle_make NOT LIKE('NASSAU')
+	   AND vehicle_make NOT LIKE('%INTERCEPTOR%')
+;
+
+/* Find filtered values of vehicle makes containing 'VOL'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%VOLV%')
+	 AND vehicle_make NOT LIKE ('CITY%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'VOLVO' */
+UPDATE vehicles
+SET vehicle_make = 'VOLVO'
+	WHERE vehicle_make LIKE('%VOLV%')
+	 AND vehicle_make NOT LIKE ('CITY%')
+;
+
+/* Find filtered values of vehicle makes containing 'LNDR' or 'LAND R'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%LNDR%')
+	 OR vehicle_make LIKE ('%LAND R%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+
+/* Update table by using above query to set return values to 'LAND ROVER' */
+UPDATE vehicles
+SET vehicle_make = 'LAND ROVER'
+	WHERE vehicle_make LIKE('%LNDR%')
+	 OR vehicle_make LIKE ('%LAND R%')
+;
+
+/* Find filtered values of vehicle makes containing 'HIN'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%HIN%')
+	 AND vehicle_make NOT LIKE ('%MACHINE%')
+	 AND vehicle_make NOT LIKE ('%CHINA%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'HINO' */
+UPDATE vehicles
+SET vehicle_make = 'HINO'
+	 WHERE vehicle_make LIKE('%HIN%')
+	 AND vehicle_make NOT LIKE ('%MACHINE%')
+	 AND vehicle_make NOT LIKE ('%CHINA%')
+;
+
+/* Find filtered values of vehicle makes containing 'BUIC'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%BUIC%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'BUICK' */
+UPDATE vehicles
+SET vehicle_make = 'BUICK'
+	 WHERE vehicle_make LIKE('%BUIC%')
+;
+
+/* Find filtered values of vehicle makes containing 'MERC'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%MERC%')
+	 AND vehicle_make NOT LIKE('%COMMERCIAL%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'MERCURY' */
+UPDATE vehicles
+SET vehicle_make = 'MERCURY'
+	 WHERE vehicle_make LIKE('%MERC%')
+	 AND vehicle_make NOT LIKE('%COMMERCIAL%')
+;
+
+/* Find filtered values of vehicle makes containing 'ISU'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%ISU%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'ISUZU' */
+UPDATE vehicles
+SET vehicle_make = 'ISUZU'
+	 WHERE vehicle_make LIKE('%ISU%')
+;
+
+/* Find filtered values of vehicle makes containing 'KW' or 'KEN'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%KW%')
+	 OR vehicle_make LIKE('%KEN%')
+	 AND vehicle_make NOT LIKE('%KENTUCKY%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'KENWORTH' */
+UPDATE vehicles
+SET vehicle_make = 'KENWORTH'
+	 WHERE vehicle_make LIKE('%KW%')
+	 OR vehicle_make LIKE('%KEN%')
+	 AND vehicle_make NOT LIKE('%KENTUCKY%')
+;
+
+/* Find filtered values of vehicle makes containing 'PTRB' or 'PET'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%PTRB%')
+	 OR vehicle_make LIKE('%PET%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'PETERBILT' */
+UPDATE vehicles
+SET vehicle_make = 'PETERBILT'
+	 WHERE vehicle_make LIKE('%PTRB%')
+	 OR vehicle_make LIKE('%PET%')
+;
+
+/* Find filtered values of vehicle makes containing 'PORS'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%PORS%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'PORSCHE' */
+UPDATE vehicles
+SET vehicle_make = 'PORSCHE'
+	 WHERE vehicle_make LIKE('%PORS%')
+;
+
+/* Find filtered values of vehicle makes containing 'MNNI' or 'MINI'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%MNNI%')
+	 OR vehicle_make LIKE('MINI%')
+	 AND vehicle_make NOT LIKE('%VAN%')
+	 AND vehicle_make NOT LIKE('%BUS%')
+	 AND vehicle_make NOT LIKE('MINIMOTORS%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'MINI' */
+UPDATE vehicles
+SET vehicle_make = 'MINI'
+	 WHERE vehicle_make LIKE('%MNNI%')
+	 OR vehicle_make LIKE('MINI%')
+	 AND vehicle_make NOT LIKE('%VAN%')
+	 AND vehicle_make NOT LIKE('%BUS%')
+	 AND vehicle_make NOT LIKE('MINIMOTORS%')
+;
+
+
+/* Find filtered values of vehicle makes containing 'STRN' OR 'SATURN'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%STRN%')
+	 OR vehicle_make LIKE('%SATURN%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'SATURN' */
+UPDATE vehicles
+SET vehicle_make = 'SATURN'
+	 WHERE vehicle_make LIKE('%STRN%')
+	 OR vehicle_make LIKE('%SATURN%')
+;
+
+
+/* Find filtered values of vehicle makes containing 'PONT'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%PONT%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'PONTIAC' */
+UPDATE vehicles
+SET vehicle_make = 'PONTIAC'
+	 WHERE vehicle_make LIKE('%PONT%')
+;
+
+/* Find filtered values of vehicle makes containing 'JAG'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%JAG%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'JAGUAR' */
+UPDATE vehicles
+SET vehicle_make = 'JAGUAR'
+	 WHERE vehicle_make LIKE('%JAG%')
+	 AND vehicle_make NOT LIKE ('%XMVA%')
+;
+
+/* Find filtered values of vehicle makes containing 'YAMA'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%YAMA%')
+	 AND vehicle_make NOT LIKE('%YAMASAKI%')
+	 AND vehicle_make NOT LIKE('%YAMASKI%')
+	 AND vehicle_make NOT LIKE('YAMAN')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'YAMAHA' */
+UPDATE vehicles
+SET vehicle_make = 'YAMAHA'
+	 WHERE vehicle_make LIKE('%YAMA%')
+	 AND vehicle_make NOT LIKE('%YAMASAKI%')
+	 AND vehicle_make NOT LIKE('%YAMASKI%')
+	 AND vehicle_make NOT LIKE('YAMAN')
+;
+
+/* Find filtered values of vehicle makes containing 'TESL'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%TESL%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'TESLA' */
+UPDATE vehicles
+SET vehicle_make = 'TESLA'
+	 WHERE vehicle_make LIKE('%TESL%')
+;
+
+/* Find filtered values of vehicle makes containing 'SUZI'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%SUZI%')
+	 OR vehicle_make LIKE('%SUZU%')
+	 AND vehicle_make NOT LIKE('ISUZU')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'SUZUKI' */
+UPDATE vehicles
+SET vehicle_make = 'SUZUKI'
+	  WHERE vehicle_make LIKE('%SUZI%')
+	  OR vehicle_make LIKE('%SUZU%')
+	  AND vehicle_make NOT LIKE('ISUZU')
+;
+
+/* Find filtered values of vehicle makes containing 'SMRT'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%SMART%')
+	 OR vehicle_make LIKE('%SMRT%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'SMART' */
+UPDATE vehicles
+SET vehicle_make = 'SMART'
+	   WHERE vehicle_make LIKE('%SMART%')
+	   OR vehicle_make LIKE('%SMRT%')
+;
+
+/* Find filtered values of vehicle makes containing 'HD'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%HARL%')
+	 OR vehicle_make LIKE('%HD%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'HARLEY DAVIDSON' */
+UPDATE vehicles
+SET vehicle_make = 'HARLEY DAVIDSON'
+	   WHERE vehicle_make LIKE('%HARL%')
+	   OR vehicle_make LIKE('%HD%')
+;
+
+/* Find filtered values of vehicle makes containing 'HD'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%KAWK%')
+	 OR vehicle_make LIKE('%KAWA%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'KAWASAKI' */
+UPDATE vehicles
+SET vehicle_make = 'KAWASAKI'
+	   WHERE vehicle_make LIKE('%KAWK%')
+	   OR vehicle_make LIKE('%KAWA%')
+;
+
+/* Find filtered values of vehicle makes containing 'FIAT'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%FIAT%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'FIAT' */
+UPDATE vehicles
+SET vehicle_make = 'FIAT'
+	   WHERE vehicle_make LIKE('%FIAT%')
+;
+
+/* Find filtered values of vehicle makes containing 'FIAT'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%NOVA%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'NOVA' */
+UPDATE vehicles
+SET vehicle_make = 'NOVA'
+	   WHERE vehicle_make LIKE('%NOVA%')
+;
+
+/* Find filtered values of vehicle makes containing 'UNK'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%UNK%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'NOVA' */
+UPDATE vehicles
+SET vehicle_make = 'UNKNOWN'
+	   WHERE vehicle_make LIKE('%UNK%')
+;
+
+/* Find filtered values of vehicle makes containing 'BlUE BIRD'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%BLUE BIRD%')
+	 OR vehicle_make LIKE('%BLUEB%')
+	 OR vehicle_make LIKE ('%BLUI%')
+	 AND vehicle_make NOT LIKE ('%NEW FLYER%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'BLUEBIRD' */
+UPDATE vehicles
+SET vehicle_make = 'BLUEBIRD'
+	   WHERE vehicle_make LIKE('%BLUE BIRD%')
+	   OR vehicle_make LIKE('%BLUEB%')
+	   OR vehicle_make LIKE ('%BLUI%')
+	   AND vehicle_make NOT LIKE ('%NEW FLYER%')
+;
+
+/* Find filtered values of vehicle makes containing 'MCIN'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%MCIN%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'MOTORCOACH IND' */
+UPDATE vehicles
+SET vehicle_make = 'MOTORCOACH IND'
+	   WHERE vehicle_make LIKE('%MCIN%')
+;
+
+/* Find filtered values of vehicle makes containing 'RAMB'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%RAMB%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'RAMBLER' */
+UPDATE vehicles
+SET vehicle_make = 'RAMBLER'
+	   WHERE vehicle_make LIKE('%RAMB%')
+;
+
+/* Find filtered values of vehicle makes containing 'MASE'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%MASE%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'MASERATI' */
+UPDATE vehicles
+SET vehicle_make = 'MASERATI'
+	   WHERE vehicle_make LIKE('%MASE%')
+;
+
+/* Find filtered values of vehicle makes containing 'SAA'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%SAA%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'SAAB' */
+UPDATE vehicles
+SET vehicle_make = 'SAAB'
+	   WHERE vehicle_make LIKE('%SAA%')
+;
+
+/* Find filtered values of vehicle makes containing 'STARC'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%STARC%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'STARCRAFT' */
+UPDATE vehicles
+SET vehicle_make = 'STARCRAFT'
+	   WHERE vehicle_make LIKE('%STARC%')
+;
+
+/* Find filtered values of vehicle makes containing 'HUMM'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%HUMM%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'HUMMER' */
+UPDATE vehicles
+SET vehicle_make = 'HUMMER'
+	   WHERE vehicle_make LIKE('%HUMM%')
+;
+
+/* Find filtered values of vehicle makes containing 'SCIO'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%SCIO%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'SCION' */
+UPDATE vehicles
+SET vehicle_make = 'SCION'
+	   WHERE vehicle_make LIKE('%SCIO%')
+;
+
+/* Find filtered values of vehicle makes containing 'ORION'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%ORION%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'ORION' */
+UPDATE vehicles
+SET vehicle_make = 'ORION'
+	   WHERE vehicle_make LIKE('%ORION%')
+;
+
+/* Find filtered values of vehicle makes containing 'NEW FLYER'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%NEW FLYER%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'NEW FLYER' */
+UPDATE vehicles
+SET vehicle_make = 'NEW FLYER'
+	   WHERE vehicle_make LIKE('%NEW FLYER%')
+	   OR vehicle_make = 'NEWFL'
+;
+
+/* Find filtered values of vehicle makes containing 'THMS'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%THMS%')
+	 OR vehicle_make LIKE('%THOM%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'NEW FLYER' */
+UPDATE vehicles
+SET vehicle_make = 'THOMAS'
+	   WHERE vehicle_make LIKE('%THMS%')
+	   OR vehicle_make LIKE('%THOM%')
+;
+
+/* Find filtered values of vehicle makes containing 'OLDS'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%OLDS%')
+	 AND vehicle_make NOT LIKE('ALEXANDER%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'OLDSMOBILE' */
+UPDATE vehicles
+SET vehicle_make = 'OLDSMOBILE'
+	  WHERE vehicle_make LIKE('%OLDS%')
+	  AND vehicle_make NOT LIKE('ALEXANDER%')
+;
+
+/* Find filtered values of vehicle makes containing 'PREVO'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%PREVO%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'PREVO' */
+UPDATE vehicles
+SET vehicle_make = 'PREVOST'
+	  WHERE vehicle_make LIKE('%PREVO%')
+;
+
+/* Find filtered values of vehicle makes containing 'WESTERN STAR'*/
+SELECT vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+	 WHERE vehicle_make LIKE('%WSTR%')
+	 OR vehicle_make LIKE('%WESTER%')
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
+
+/* Update table by using above query to set return values to 'WESTERN STAR'*/
+UPDATE vehicles
+SET vehicle_make = 'WESTERN STAR'
+	  WHERE vehicle_make LIKE('%WSTR%')
+	  OR vehicle_make LIKE('%WESTER%')
+;
+
+/* Next step update vehicle_type_code_1 to OTHER when total count is less than 90 */
+/*UPDATE vehicles
+SET vehicle_type_code_1 = 'OTHER'
+WHERE vehicle_type_code_1 IN (
+    SELECT vehicle_make
+    FROM (
+        SELECT vehicle_make, COUNT(*) AS count_type
+        FROM vehicles
+        GROUP BY vehicle_make
+    ) AS counts
+    WHERE counts.count_type <= 1000
+);*/
+
+SELECT DISTINCT(vehicle_make) as vehicle_make, 
+       COUNT(*) as vehicle_make_count
+FROM vehicles
+GROUP BY vehicle_make
+ORDER BY vehicle_make_count DESC
+;
