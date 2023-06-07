@@ -1859,22 +1859,211 @@ SET vehicle_make = 'WESTERN STAR'
 	  OR vehicle_make LIKE('%WESTER%')
 ;
 
-/* Next step update vehicle_type_code_1 to OTHER when total count is less than 90 */
-/*UPDATE vehicles
-SET vehicle_type_code_1 = 'OTHER'
-WHERE vehicle_type_code_1 IN (
+/* Next step update vehicle_make to OTHER when total count is less than 641 */
+UPDATE vehicles
+SET vehicle_make = 'OTHER'
+WHERE vehicle_make IN (
     SELECT vehicle_make
     FROM (
         SELECT vehicle_make, COUNT(*) AS count_type
         FROM vehicles
         GROUP BY vehicle_make
     ) AS counts
-    WHERE counts.count_type <= 1000
-);*/
+    WHERE counts.count_type <= 641
+);
 
+/* Final tally of grouped vehicle_make. */
 SELECT DISTINCT(vehicle_make) as vehicle_make, 
        COUNT(*) as vehicle_make_count
 FROM vehicles
 GROUP BY vehicle_make
 ORDER BY vehicle_make_count DESC
 ;
+
+
+/* Conducted an inspection of the vehicle_model by grouping distinct vehicle_model by count. After 
+inspection it was found most models are missing and the ones inputed are too indistinguible to be 
+used in analysis.*/
+SELECT DISTINCT(vehicle_model) as vehicle_model, 
+       COUNT(*) as vehicle_model_count
+FROM vehicles
+GROUP BY vehicle_model
+ORDER BY vehicle_model_count DESC
+;
+
+/* The vehicle_year was group by count to inspect entries, many 
+entries found are obviously incorrect as they are years much later 
+than 2022/2023. */
+SELECT DISTINCT(vehicle_year), 
+       COUNT(*) AS vehicle_year_count
+FROM vehicles
+GROUP BY vehicle_year
+ORDER BY vehicle_year;
+
+/* Alters column vehicles.vehicle_year to integer in order to make corrections to the inputs easier.*/
+ALTER TABLE IF EXISTS vehicles
+	ALTER COLUMN vehicle_year 
+	TYPE INTEGER
+		USING(vehicle_year::INTEGER)
+;
+
+/* Updates vehicle_year to NULL where vehicle years are between 2023 and 20064.*/
+UPDATE vehicles
+SET vehicle_year = NULL
+WHERE vehicle_year 
+      BETWEEN 2024 AND 20064;
+
+/* Updates vehicle_year to NULL where vehicle years are between 1000 and 1900.*/
+UPDATE vehicles
+SET vehicle_year = NULL
+WHERE vehicle_year 
+      BETWEEN 1000 AND 1900;
+	  
+/* Reformats the vehicle_year column back to text format.*/
+ALTER TABLE IF EXISTS vehicles
+	ALTER COLUMN vehicle_year 
+	TYPE TEXT
+		USING(vehicle_year::TEXT)
+;
+
+/* Groups counts of distinct travel_direction to inspect the column. Minor corrections will be needed to
+to column to ensure uniformity of data. */ 
+SELECT DISTINCT(travel_direction), 
+       COUNT(*) AS travel_direction_count
+FROM vehicles
+GROUP BY travel_direction
+ORDER BY travel_direction;
+
+/* Uppercases all text within the column */
+UPDATE vehicles
+SET travel_direction = UPPER(travel_direction)
+;
+
+/* Updates data to read 'EAST' when input as 'E' */
+UPDATE vehicles
+SET travel_direction = 'EAST'
+	WHERE travel_direction = 'E'
+;
+
+/* Updates data to read 'NORTH' when input as 'N' */
+UPDATE vehicles
+SET travel_direction = 'NORTH'
+	WHERE travel_direction = 'N'
+;
+
+/* Updates data to read 'WEST' when input as 'W' */
+UPDATE vehicles
+SET travel_direction = 'WEST'
+	WHERE travel_direction = 'W'
+;
+
+/* Updates data to read 'SOUTH' when input as 'S' */
+UPDATE vehicles
+SET travel_direction = 'SOUTH'
+	WHERE travel_direction = 'S'
+;
+
+/* Updates data to read 'UNKNOWN' when input as 'U' */
+UPDATE vehicles
+SET travel_direction = 'UNKNOWN'
+	WHERE travel_direction = 'U'
+;
+
+/* Updates data to NULL when input as '-' */
+UPDATE vehicles
+SET travel_direction = NULL
+	WHERE travel_direction = '-'
+;
+
+/* Final check of data in travel_direction column */
+SELECT DISTINCT(travel_direction), 
+       COUNT(*) AS travel_direction_count
+FROM vehicles
+GROUP BY travel_direction
+ORDER BY travel_direction;
+
+/* Conduct an inital inspection of driver_sex values. No inconsistent inputs found.  */
+SELECT DISTINCT(driver_sex), 
+       COUNT(*) AS sex_count
+FROM vehicles
+GROUP BY driver_sex
+ORDER BY sex_count;
+
+/* Conduct an inital inspection of driver_license_status values. */
+SELECT DISTINCT(driver_license_status), 
+       COUNT(*) AS license_count
+FROM vehicles
+GROUP BY driver_license_status
+ORDER BY license_count;
+
+/* Trims and uppercases all values within the driver_license_status column */
+UPDATE vehicles
+	SET driver_license_status = TRIM(UPPER(driver_license_status))
+;
+/* Conduct an inital inspection of driver_license_jurisdiction values. */
+SELECT DISTINCT(driver_license_jurisdiction), 
+COUNT(*) AS license_count
+FROM vehicles
+GROUP BY driver_license_jurisdiction
+ORDER BY license_count
+;
+
+/* Selects the rows with data inputed with errors present.*/
+SELECT driver_license_jurisdiction, 
+       COUNT(*) as license_count
+FROM vehicles
+	 WHERE driver_license_jurisdiction LIKE('__''')
+	 		OR driver_license_jurisdiction LIKE('%,%')
+GROUP BY driver_license_jurisdiction
+ORDER BY license_count DESC
+;
+
+/* Sets driver_license_jurisdiction to PA to remove input error. */
+UPDATE vehicles
+	SET driver_license_jurisdiction = 'PA'
+		WHERE driver_license_jurisdiction LIKE('__''')
+;
+
+/* Sets driver_license_jurisdiction to NULL to remove input as there was only one. */
+UPDATE vehicles
+	SET driver_license_jurisdiction = NULL
+		WHERE driver_license_jurisdiction LIKE('%,%')
+;
+
+/* Conduct an inital inspection of pre_crash values. All values seem  to be standardized */
+SELECT DISTINCT(pre_crash), 
+       COUNT(*) AS pre_crash_count
+FROM vehicles
+GROUP BY pre_crash
+ORDER BY pre_crash_count
+;
+
+/* Trims and uppercases all values within the pre_crash column */
+UPDATE vehicles
+	SET pre_crash = TRIM(UPPER(pre_crash))
+;
+
+/* Selects rows with values 'OTHER*' */
+SELECT pre_crash,
+	   COUNT(*)
+FROM vehicles
+WHERE pre_crash = 'OTHER*'
+GROUP BY pre_crash
+;
+
+/* Sets values to 'OTHER' to remove astrisk from inputed 'OTHER*' values */
+UPDATE vehicles
+	SET pre_crash = 'OTHER'
+		WHERE pre_crash = 'OTHER*'
+;
+
+/* Conduct an inital inspection of point_of_impact values. All values seem to be standardized*/
+SELECT DISTINCT(point_of_impact), 
+       COUNT(*) AS impact_count
+FROM vehicles
+GROUP BY point_of_impact
+ORDER BY impact_count;
+
+/* Trims and uppercases all values within the point_of_impact column */
+UPDATE vehicles
+	SET point_of_impact = TRIM(UPPER(point_of_impact))
