@@ -87,7 +87,13 @@ ALTER TABLE IF EXISTS persons
 	TYPE INTEGER
 		USING(collision_id::INTEGER)
 ;
-		
+
+/* Adds a primary key constraint to crashes.collision_id column to maintain data integrity */
+ALTER TABLE IF EXISTS persons
+	ADD CONSTRAINT persons_pk 
+	PRIMARY KEY (unique_id)
+;
+
 /* Adds a foreign key constraint to persons.collision_id column which references the primary key 
 in crashes table */
 ALTER TABLE IF EXISTS persons
@@ -102,6 +108,12 @@ ALTER TABLE IF EXISTS vehicles
 	ALTER COLUMN collision_id 
 	TYPE INTEGER
 		USING(collision_id::INTEGER)
+;
+
+/* Adds a primary key constraint to crashes.collision_id column to maintain data integrity */
+ALTER TABLE IF EXISTS vehicles
+	ADD CONSTRAINT vehicles_pk 
+	PRIMARY KEY (unique_id)
 ;
 		
 /* Adds a foreign key constraint to vehicles.collision_id column which references the primary key 
@@ -169,25 +181,21 @@ FROM crashes
 LIMIT 100
 ;
 
-
 /* Permenantly removes crash_date from crashes table */
 ALTER TABLE crashes
 	DROP COLUMN crash_date
 ;
 	
-
 /* Permenantly removes crash_time from crashes table */
 ALTER TABLE crashes
 	DROP COLUMN crash_time
 ;
 	
-
 /* Renames new_date column to crash_date */
 ALTER TABLE crashes
 	RENAME COLUMN new_date to crash_date
 ;
 	
-
 /* Renames new_date column to crash_date */
 ALTER TABLE crashes
 	RENAME COLUMN new_time to crash_time
@@ -1898,7 +1906,8 @@ SELECT DISTINCT(vehicle_year),
        COUNT(*) AS vehicle_year_count
 FROM vehicles
 GROUP BY vehicle_year
-ORDER BY vehicle_year;
+ORDER BY vehicle_year
+;
 
 /* Alters column vehicles.vehicle_year to integer in order to make corrections to the inputs easier.*/
 ALTER TABLE IF EXISTS vehicles
@@ -1911,13 +1920,15 @@ ALTER TABLE IF EXISTS vehicles
 UPDATE vehicles
 SET vehicle_year = NULL
 WHERE vehicle_year 
-      BETWEEN 2024 AND 20064;
+      BETWEEN 2024 AND 20064
+;
 
 /* Updates vehicle_year to NULL where vehicle years are between 1000 and 1900.*/
 UPDATE vehicles
 SET vehicle_year = NULL
 WHERE vehicle_year 
-      BETWEEN 1000 AND 1900;
+      BETWEEN 1000 AND 1900
+;
 	  
 /* Reformats the vehicle_year column back to text format.*/
 ALTER TABLE IF EXISTS vehicles
@@ -1932,7 +1943,8 @@ SELECT DISTINCT(travel_direction),
        COUNT(*) AS travel_direction_count
 FROM vehicles
 GROUP BY travel_direction
-ORDER BY travel_direction;
+ORDER BY travel_direction
+;
 
 /* Uppercases all text within the column */
 UPDATE vehicles
@@ -1980,26 +1992,30 @@ SELECT DISTINCT(travel_direction),
        COUNT(*) AS travel_direction_count
 FROM vehicles
 GROUP BY travel_direction
-ORDER BY travel_direction;
+ORDER BY travel_direction
+;
 
 /* Conduct an inital inspection of driver_sex values. No inconsistent inputs found.  */
 SELECT DISTINCT(driver_sex), 
        COUNT(*) AS sex_count
 FROM vehicles
 GROUP BY driver_sex
-ORDER BY sex_count;
+ORDER BY sex_count
+;
 
 /* Conduct an inital inspection of driver_license_status values. */
 SELECT DISTINCT(driver_license_status), 
        COUNT(*) AS license_count
 FROM vehicles
 GROUP BY driver_license_status
-ORDER BY license_count;
+ORDER BY license_count
+;
 
 /* Trims and uppercases all values within the driver_license_status column */
 UPDATE vehicles
-	SET driver_license_status = TRIM(UPPER(driver_license_status))
-;
+	SET driver_license_status = TRIM(UPPER(driver_license_status)
+);
+
 /* Conduct an inital inspection of driver_license_jurisdiction values. */
 SELECT DISTINCT(driver_license_jurisdiction), 
 COUNT(*) AS license_count
@@ -2040,8 +2056,8 @@ ORDER BY pre_crash_count
 
 /* Trims and uppercases all values within the pre_crash column */
 UPDATE vehicles
-	SET pre_crash = TRIM(UPPER(pre_crash))
-;
+	SET pre_crash = TRIM(UPPER(pre_crash)
+);
 
 /* Selects rows with values 'OTHER*' */
 SELECT pre_crash,
@@ -2062,8 +2078,197 @@ SELECT DISTINCT(point_of_impact),
        COUNT(*) AS impact_count
 FROM vehicles
 GROUP BY point_of_impact
-ORDER BY impact_count;
+ORDER BY impact_count
+;
 
 /* Trims and uppercases all values within the point_of_impact column */
 UPDATE vehicles
-	SET point_of_impact = TRIM(UPPER(point_of_impact))
+	SET point_of_impact = TRIM(UPPER(point_of_impact)
+);
+
+/* Conduct an inital inspection of vehicle_damage values. All values seem to be pre-standardized*/
+SELECT DISTINCT(vehicle_damage), 
+       COUNT(*) AS damage_count
+FROM vehicles
+GROUP BY vehicle_damage
+ORDER BY damage_count
+;
+
+/* Trims and uppercases all values within the vehicle_damage column */
+UPDATE vehicles
+	SET vehicle_damage = TRIM(UPPER(vehicle_damage)
+);
+
+/* Conduct an inital inspection of vehicle_damage_1 values. All values seem to be pre-standardized*/
+SELECT DISTINCT(vehicle_damage_1), 
+       COUNT(*) AS damage_count
+FROM vehicles
+GROUP BY vehicle_damage_1
+ORDER BY damage_count
+;
+
+/* Trims and uppercases all values within the vehicle_damage_1 column */
+UPDATE vehicles
+	SET vehicle_damage_1 = TRIM(UPPER(vehicle_damage_1)
+);
+
+/* Conduct an inital inspection of vehicle_damage_2 values. All values seem to be pre-standardized*/
+SELECT DISTINCT(vehicle_damage_2), 
+       COUNT(*) AS damage_count
+FROM vehicles
+GROUP BY vehicle_damage_2
+ORDER BY damage_count
+;
+
+/* Trims and uppercases all values within the vehicle_damage_2 column */
+UPDATE vehicles
+	SET vehicle_damage_2 = TRIM(UPPER(vehicle_damage_2)
+);
+
+/* Conduct an inital inspection of vehicle_damage_3 values. All values seem to be pre-standardized*/
+SELECT DISTINCT(vehicle_damage_3), 
+       COUNT(*) AS damage_count
+FROM vehicles
+GROUP BY vehicle_damage_3
+ORDER BY damage_count
+;
+
+/* Trims and uppercases all values within the vehicle_damage_3 column */
+UPDATE vehicles
+	SET vehicle_damage_3 = TRIM(UPPER(vehicle_damage_3)
+);
+	
+/* Conduct an inital inspection of public_property_damage values. All values seem to be pre-standardized*/
+SELECT DISTINCT(public_property_damage), 
+       COUNT(*) AS damage_count
+FROM vehicles
+GROUP BY public_property_damage
+ORDER BY damage_count
+;
+
+/* Trims and uppercases all values within the public_property_damage column */
+UPDATE vehicles
+	SET public_property_damage= TRIM(UPPER(public_property_damage)
+);
+
+/* Conduct an inital inspection of public_property_damage_type values. All values are not standardized and 
+contain a description of the damage to public property or address of the damage.*/
+SELECT DISTINCT(public_property_damage_type), 
+       COUNT(*) AS damage_count
+FROM vehicles
+GROUP BY public_property_damage_type
+ORDER BY damage_count
+;
+
+/* Conduct an inital inspection of contributing_factor_1 values. All values are mostly standardized 
+but some cleaning will need to be conducted.*/
+SELECT DISTINCT(contributing_factor_1), 
+       COUNT(*) AS factor_count
+FROM vehicles
+GROUP BY contributing_factor_1
+ORDER BY factor_count
+;
+
+/* Trims and uppercases all values within the contributing_factor_1 column */
+UPDATE vehicles
+	SET contributing_factor_1= TRIM(UPPER(contributing_factor_1)
+);
+
+/* Corrects 'ILLNES' value to 'ILLNESS' */
+UPDATE vehicles
+	SET contributing_factor_1= 'ILLNESS'
+		WHERE contributing_factor_1 = 'ILLNES'
+;
+
+/* Updates 'TEXTING' value to 'CELL PHONE (HAND_HELD)' */
+UPDATE vehicles
+	SET contributing_factor_1= 'CELL PHONE (HAND_HELD)'
+		WHERE contributing_factor_1 = 'TEXTING'
+;
+
+/* Updates 'CELL PHONE (HAND_HELD)' value to 'CELL PHONE (HAND-HELD)' to correct mistake. */
+UPDATE vehicles
+	SET contributing_factor_1= 'CELL PHONE (HAND-HELD)'
+		WHERE contributing_factor_1 = 'CELL PHONE (HAND_HELD)'
+;
+
+/* Updates various driver inattentive / distractive activites to the value 'DRIVER INATTENTION/DISTRACTION' */
+UPDATE vehicles
+	SET contributing_factor_1= 'DRIVER INATTENTION/DISTRACTION'
+		WHERE contributing_factor_1 = 'LISTENING/USING HEADPHONES'
+			OR contributing_factor_1 = 'EATING OR DRINKING'
+				OR contributing_factor_1 = 'USING ON BOARD NAVIGATION DEVICE'
+
+/* Updates unknown values to 'UNSPECIFIED'. */
+UPDATE vehicles
+	SET contributing_factor_1= 'UNSPECIFIED'
+		WHERE contributing_factor_1 = '1'
+			or contributing_factor_1 = '80'
+;
+
+/* Conduct an inital inspection of contributing_factor_2 values. All values are mostly standardized 
+but some cleaning will need to be conducted.*/
+SELECT DISTINCT(contributing_factor_2), 
+       COUNT(*) AS factor_count
+FROM vehicles
+GROUP BY contributing_factor_2
+ORDER BY factor_count
+;
+
+/* Trims and uppercases all values within the contributing_factor_2 column */
+UPDATE vehicles
+	SET contributing_factor_2= TRIM(UPPER(contributing_factor_2)
+);
+
+/* Corrects 'ILLNES' value to 'ILLNESS' */
+UPDATE vehicles
+	SET contributing_factor_2= 'ILLNESS'
+		WHERE contributing_factor_2 = 'ILLNES'
+;
+
+/* Updates 'TEXTING' value to 'CELL PHONE (HAND_HELD)' */
+UPDATE vehicles
+	SET contributing_factor_2= 'CELL PHONE (HAND-HELD)'
+		WHERE contributing_factor_2 = 'TEXTING'
+;
+
+
+/* Updates various driver inattentive / distractive activites to the value 'DRIVER INATTENTION/DISTRACTION' */
+UPDATE vehicles
+	SET contributing_factor_2= 'DRIVER INATTENTION/DISTRACTION'
+		WHERE contributing_factor_2 = 'LISTENING/USING HEADPHONES'
+			OR contributing_factor_2 = 'EATING OR DRINKING'
+				OR contributing_factor_2 = 'USING ON BOARD NAVIGATION DEVICE'
+;
+
+/* Updates unknown values to 'UNSPECIFIED'. */
+UPDATE vehicles
+	SET contributing_factor_2= 'UNSPECIFIED'
+		WHERE contributing_factor_2 = '1'
+			or contributing_factor_2 = '80'
+;
+
+/* Update column 'new_time' with values from crash_date column converted to date format */
+UPDATE persons
+	SET crash_time = TO_TIMESTAMP(crash_time, 'HH24:MI')::TIME
+;
+
+/* Adds new column crash_timestamp to persons table */
+ALTER TABLE IF EXISTS persons
+	ADD COLUMN crash_timestamp TIMESTAMP
+;
+
+/* Concatenates 'crash_date' and 'crash_time' columns into new 'crash_timestamp' column and converts
+data type to TIMESTAMP */
+UPDATE persons
+	SET crash_timestamp = CONCAT(crash_date, ' ', crash_time)::TIMESTAMP
+;
+
+/* Permenantly removes crash_date from persons table */
+ALTER TABLE persons
+	DROP COLUMN crash_date,
+	DROP COLUMN crash_time
+;
+
+SELECT * FROM persons
+limit 100
